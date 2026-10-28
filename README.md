@@ -1,129 +1,163 @@
-# Ready to Revise (R2R)
+# Backend Project
 
-<p align="center">
-  <img src="android/app/src/main/assets/AppBanner4.png" alt="Ready to Revise banner" width="440" />
-</p>
+## Overview
 
-AI-powered spaced-repetition study app: upload study material, get AI-generated
-quizzes, and revise exactly what you're about to forget.
+This is a complete Django REST API project built with Django REST Framework (DRF) and includes interactive API documentation using Swagger/OpenAPI (drf-yasg). The project provides a clean, scalable backend structure with example API endpoints for health checks and user management.
 
-```
-Upload PDF/image/docx ─► Gemini generates MCQs ─► daily slipping-soon session ─► behavior-derived confidence
-     ▲                                                              │
-     │                                                              ▼
-Scheduler tracks memory intervals ◄───────────────── ML + forgetting-dates pick what you see
-```
+## Features
 
-## Components
+- **Django 5.2** - Modern Python web framework
+- **Django REST Framework** - Powerful toolkit for building Web APIs
+- **Swagger/OpenAPI Documentation** - Interactive API docs with Swagger UI and ReDoc
+- **Environment Configuration** - Secure configuration using .env files
+- **RESTful Architecture** - Clean API design following REST principles
+- **CORS Ready** - Configurable for cross-origin requests
+- **Production Ready** - Includes deployment best practices
 
-| Folder | What it is | Stack | Port |
-|---|---|---|---|
-| [`android/`](android/) | Mobile app (end-user devices) | Kotlin, Jetpack Compose, Retrofit | — |
-| [`backend/`](backend/) | REST API + orchestration | NestJS 11, Prisma, PostgreSQL | 3000 |
-| [`machine_learning/`](machine_learning/) | Recall-prediction service | Python 3.11, FastAPI, scikit-learn | 8000 |
+## Tech Stack
 
-**Topology:** backend + ML run co-located on one server (ML binds `127.0.0.1`);
-PostgreSQL location is independent (`DATABASE_URL`); the Android app talks only
-to the backend over HTTPS.
+- Python 3.11+
+- Django 5.2.18
+- Django REST Framework 3.18.3
+- drf-yasg 1.21.18
+- SQLite (default) / PostgreSQL ready
 
-```
-Upload PDF/image/docx ─► Gemini generates MCQs ─► daily slipping-soon session ─► behavior-derived confidence
-     ▲                                                              │
-     │                                                              ▼
-Scheduler tracks memory intervals ◄───────────────── ML + forgetting-dates pick what you see
-```
+## Prerequisites
 
-## How it fits together
+Before you begin, ensure you have the following installed:
+- Python 3.11 or higher
+- pip (Python package manager)
+- Virtual environment tool (venv)
 
-1. **Upload** → `POST api/v1/documents` stores the file; Gemini analyzes it.
-2. **Generate** → `POST api/v1/documents/:id/questions` creates MCQ study items;
-   they are revisable **immediately** (nominal forgetting date = next day).
-3. **Serve** → each day's session = questions whose predicted
-   forgetting date falls within the next 48 h, earliest-slipperiest first,
-   capped at 20; just-answered questions rest ≥20 h. The rule-based scheduler
-   stays as internal plumbing (model features, offline fallback, analytics) and
-   never gates serving.
-4. **Quiz** → user taps MCQ options. The app sends *raw observables only*
-   (selected option + passive timing signals). No self-rating buttons exist.
-   Swiping a card left toggles "memorized" locally; marks batch-commit as
-   `MEMORIZED` reviews (`reviews/self-grade`, GOOD interval × 1.5) when the
-   session finishes.
-5. **Derive** → backend grades the answer and computes a confidence score from
-   behavior (correctness 0.40 · response speed 0.25 · hesitation 0.20 · answer
-   stability 0.15), mapping it to a scheduler grade.
-6. **Schedule** → expanding spaced-repetition intervals update each item's
-   memory state (`nextReviewAt`) — feeding both future predictions and the
-   offline fallback ordering.
-7. **Prioritize** → the ML service predicts recall probability per candidate;
-   items are served by earliest predicted forgetting date, ML ordering on top.
-   Falls back to pure forgetting-date order when ML is unavailable or untrained.
+## Setup Instructions
 
-One database (`r2r_db`): Prisma owns the `public` schema; an `ml` schema of
-read-only views feeds offline model training (`train.py`). The inference API is
-stateless — it never touches the DB at runtime.
-
-## Quickstart
-
-### Full stack (docker compose)
+### 1. Clone the Repository
 
 ```bash
-cp .env.example .env                  # set JWT_SECRET, GEMINI_API_KEY
-docker compose up --build             # postgres + ml + backend (migrate deploy runs automatically)
+git clone https://github.com/nehalss267/NehalSolanki_BackendFinalAssesement.git
 ```
 
-Backend: http://localhost:3000 (Swagger at `/api/docs`) · ML: 127.0.0.1:8000 ·
-Postgres host port: 5433.
 
-### Individual services
+### 2. Create and Activate Virtual Environment
 
-#### 0. Database
+**Windows:**
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+**macOS/Linux:**
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
 
 ```bash
-docker compose up -d postgres        # r2r-postgres on host port 5433
+pip install -r requirements.txt
 ```
 
-#### 1. Backend
+
+### 4. Configure Environment Variables
+
+Copy the example environment file and update it with your settings:
 
 ```bash
-cd backend
-cp .env.example .env                 # fill GEMINI_API_KEY, JWT_SECRET, DATABASE_URL
-npm ci
-npx prisma migrate deploy            # or: npx prisma db push for dev
-npx prisma generate
-npm run start:dev                    # http://localhost:3000 — Swagger: /api/docs
+cp .env.example .env
 ```
 
-Required env: `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `GEMINI_MODEL`,
-optional `ML_SERVICE_URL` (default `http://localhost:8000`).
+Edit .env file with your configuration:
+```env
+DEBUG=True
+SECRET_KEY=your-secret-key-here
+ALLOWED_HOSTS=localhost,127.0.0.1
+```
 
-#### 2. Machine learning service
+
+### 5. Run Database Migrations
 
 ```bash
-cd machine_learning
-cp .env.example .env                 # DB_* needed for TRAINING only
-uv sync                              # or: pip install -r requirements.txt
-python train.py --tune               # operator step: writes models/*.joblib
-uvicorn src.inference.app:app --host 127.0.0.1 --port 8000
+python manage.py migrate
 ```
 
-Until trained, `/predict` returns 503 and the backend automatically falls back
-to scheduler ordering — everything else keeps working.
+### 6. Create Superuser (Optional)
 
-#### 3. Android app
+To access the Django admin panel:
+```bash
+python manage.py createsuperuser
+```
 
-Open `android/` in Android Studio; set `BACKEND_URL` in `local.properties`
-(default emulator target `http://10.0.2.2:3000/`), then Run.
 
-### Verify (headless)
+### 7. Run Development Server
 
 ```bash
-./scripts/e2e.sh                     # 19 checks against localhost:3000:
-                                     # register → upload PDF + generated .docx →
-                                     # MCQs → +24h stamp (internal) → reviews w/ derived
-                                     # confidence → swipe self-grade (MEMORIZED) →
-                                     # slipping-soon recommendations (ml or
-                                     # forgetting-date fallback) → refractory check
+python manage.py runserver
 ```
 
-Backend must be running (`npm run start:dev`); the ML service is optional —
-recommendations then report `source: "scheduler"`.
+
+The server will start at http://localhost:8000
+
+## API Documentation
+
+Once the server is running, access the interactive API documentation:
+
+| Documentation | URL | Description |
+|---------------|-----|-------------|
+| Swagger UI | [http://localhost:8000/swagger/](http://localhost:8000/swagger/) | Interactive API testing interface |
+| ReDoc | [http://localhost:8000/redoc/](http://localhost:8000/redoc/) | Clean, responsive API documentation |
+| API Root | [http://localhost:8000/api/](http://localhost:8000/api/) | Browseable API root |
+
+## Available Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /api/health/ | GET | Check API health status |
+| /api/health/ping/ | GET | Simple ping test endpoint |
+| /api/users/ | GET | List all registered users |
+| /api/users/{id}/ | GET | Retrieve specific user details |
+
+## Admin Panel
+
+Access the Django admin interface at [http://localhost:8000/admin/](http://localhost:8000/admin/) to manage users and data.
+
+## Project Structure
+
+`
+backendProject/
+├── api/                # API application
+│   ├── serializers.py  # Data serializers
+│   ├── views.py        # API views/viewsets
+│   ├── urls.py         # API routes
+│   └── ...
+├── core/               # Project configuration
+│   ├── settings.py     # Django settings
+│   ├── urls.py         # Main URL configuration
+│   └── ...
+├── manage.py           # Django management script
+├── requirements.txt    # Project dependencies
+├── .env.example        # Environment variables template
+└── README.md           # Project documentation
+`
+
+## Running Tests
+
+```bash
+python manage.py test
+`
+
+## Deployment Notes
+
+For production deployment:
+1. Set DEBUG=False in .env
+2. Update SECRET_KEY with a secure random key
+3. Configure ALLOWED_HOSTS with your domain
+4. Use a production database (PostgreSQL recommended)
+5. Collect static files: python manage.py collectstatic
+6. Use a WSGI server like Gunicorn
+
+## License
+
+This project is for educational purposes.
+=======
+
