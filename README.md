@@ -1,163 +1,242 @@
-# Backend Project
+# Ready-To-Revise (Revision Scheduler App)
 
-## Overview
-
-This is a complete Django REST API project built with Django REST Framework (DRF) and includes interactive API documentation using Swagger/OpenAPI (drf-yasg). The project provides a clean, scalable backend structure with example API endpoints for health checks and user management.
+Ready-To-Revise is an intelligent study companion that helps you remember what you learn using behavior-driven spaced repetition. Upload study materials (PDFs, DOCX, or images), get AI-generated MCQs, and revise them with a smart scheduler that adapts based on how you actually perform — not just self-reported ratings.
 
 ## Features
 
-- **Django 5.2** - Modern Python web framework
-- **Django REST Framework** - Powerful toolkit for building Web APIs
-- **Swagger/OpenAPI Documentation** - Interactive API docs with Swagger UI and ReDoc
-- **Environment Configuration** - Secure configuration using .env files
-- **RESTful Architecture** - Clean API design following REST principles
-- **CORS Ready** - Configurable for cross-origin requests
-- **Production Ready** - Includes deployment best practices
+- **📄 Smart Material Ingestion**: Upload PDFs, `.docx`, PNG/JPG images; Gemini extracts and analyzes content to generate questions automatically
+- **🧠 AI-Generated Questions**: Get high-quality multiple-choice questions tailored to your study materials
+- **⏰ Behavior-Driven Spaced Repetition**: Scheduler derives confidence from correctness + passive telemetry (time spent, interactions) — no manual difficulty ratings
+- **🎯 Personalized Recommendations**: ML-powered recall predictions suggest what to revise next, with graceful fallback to scheduler order
+- **📱 Android App**: Native Kotlin/Jetpack Compose app with offline-capable revision sessions and reminder notifications
+- **📊 Analytics Dashboard**: Track your study progress with activity heatmaps and insights
+- **🔐 Secure Auth**: JWT-based authentication with password reset via OTP (email)
+- **☁️ Flexible Storage**: Support for local filesystem or S3-compatible object storage (Tigris, Cloudflare R2, Backblaze B2)
 
-## Tech Stack
+## Architecture
 
-- Python 3.11+
-- Django 5.2.18
-- Django REST Framework 3.18.3
-- drf-yasg 1.21.18
-- SQLite (default) / PostgreSQL ready
+This is a full-stack monorepo with three main components:
+
+| Component | Tech Stack | Purpose |
+|-----------|------------|---------|
+| **[Backend](./backend/README.md)** | NestJS 11, TypeScript, Prisma, PostgreSQL | REST API (`/api/v1`), auth, document processing, spaced repetition logic, ML integration |
+| **[Android App](./android/README.md)** | Kotlin, Jetpack Compose, Retrofit, WorkManager | Mobile client for studying on the go |
+| **[ML Service](./machine_learning/README.md)** | FastAPI, Python, scikit-learn/pandas | Recall prediction model training and inference |
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
-- Python 3.11 or higher
-- pip (Python package manager)
-- Virtual environment tool (venv)
+### For Docker-based setup (Recommended)
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [Git](https://git-scm.com/downloads)
 
-## Setup Instructions
+### For local development
+- **Backend**: [Node.js 20+](https://nodejs.org/), [npm](https://www.npmjs.com/), [PostgreSQL 17](https://www.postgresql.org/)
+- **ML Service**: [Python 3.11+](https://www.python.org/), [uv](https://docs.astral.sh/uv/) or pip
+- **Android**: [Android Studio](https://developer.android.com/studio), [JDK 17](https://adoptium.net/)
 
-### 1. Clone the Repository
+### API Keys Required
+- [Google Gemini API Key](https://aistudio.google.com/apikey) - for document analysis and question generation
+- Email provider (optional): [Gmail App Password](https://support.google.com/accounts/answer/185833) or [Brevo API Key](https://www.brevo.com/) for password reset OTPs
 
+## Quick Start (Docker Compose)
+
+The easiest way to run the entire stack locally:
+
+### 1. Clone the repository
 ```bash
-git clone https://github.com/nehalss267/NehalSolanki_BackendFinalAssesement.git
+git clone https://github.com/nehalss267/Ready-To-Revise--Revision-Scheduler-App.git
+cd Ready-To-Revise--Revision-Scheduler-App
 ```
 
-
-### 2. Create and Activate Virtual Environment
-
-**Windows:**
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
-
-**macOS/Linux:**
-```bash
-python -m venv venv
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-
-### 4. Configure Environment Variables
-
-Copy the example environment file and update it with your settings:
-
+### 2. Configure environment variables
 ```bash
 cp .env.example .env
 ```
 
-Edit .env file with your configuration:
+Edit `.env` with your configuration:
 ```env
-DEBUG=True
-SECRET_KEY=your-secret-key-here
-ALLOWED_HOSTS=localhost,127.0.0.1
+POSTGRES_USER=r2r_user
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=r2r_db
+
+JWT_SECRET=your-super-secret-jwt-key-change-this
+GEMINI_API_KEY=your_gemini_api_key_here
+CORS_ORIGIN=http://localhost:3000,http://10.0.2.2:3000
+
+# Optional: Email for password reset
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_16_char_app_password
+SMTP_FROM=your_email@gmail.com
 ```
 
+### 3. Start all services
+```bash
+docker compose up -d
+```
 
-### 5. Run Database Migrations
+This will start:
+- **Postgres** on `localhost:5433`
+- **ML Service** on `http://localhost:8000` (internal) / accessible via backend
+- **Backend API** on `http://localhost:3000`
+
+### 4. Run database migrations
+```bash
+cd backend
+npx prisma migrate deploy
+```
+
+### 5. Access the services
+- **Backend API Docs (Swagger)**: [http://localhost:3000/api/docs](http://localhost:3000/api/docs)
+- **Backend Health**: [http://localhost:3000/api/v1/health](http://localhost:3000/api/v1/health)
+- **ML Service Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+## Manual Setup (Local Development)
+
+### Backend (NestJS)
 
 ```bash
-python manage.py migrate
+cd backend
+
+# Install dependencies
+npm ci
+
+# Configure environment
+cp .env.example .env
+# Edit .env with DATABASE_URL, JWT_SECRET, GEMINI_API_KEY, etc.
+
+# Generate Prisma client and run migrations
+npx prisma generate
+npx prisma migrate dev
+
+# Start development server
+npm run start:dev
 ```
 
-### 6. Create Superuser (Optional)
+API will be available at `http://localhost:3000` with Swagger at `http://localhost:3000/api/docs`.
 
-To access the Django admin panel:
+### ML Service (FastAPI)
+
 ```bash
-python manage.py createsuperuser
+cd machine_learning
+
+# Install dependencies (using uv recommended)
+uv sync
+# or: pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit with database credentials
+
+# Train model (if needed)
+python train.py
+
+# Start service
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+ML service docs at `http://localhost:8000/docs`.
 
-### 7. Run Development Server
+### Android App
 
 ```bash
-python manage.py runserver
+cd android
+
+# Configure backend URL
+echo "sdk.dir=/path/to/android/sdk" > local.properties
+echo "BACKEND_URL=http://10.0.2.2:3000/" >> local.properties  # For emulator
+# Or use your local IP for physical device
+
+# Build and install
+./gradlew assembleDebug
+./gradlew installDebug
 ```
 
+Open in Android Studio for the best development experience.
 
-The server will start at http://localhost:8000
+## How It Works
 
-## API Documentation
+### Spaced Repetition Logic
+The app uses behavior-driven scheduling:
+- **No self-reporting**: Clients never send "correct/incorrect" or confidence ratings — the backend derives them from answer selection and passive telemetry
+- **Initial Intervals**: AGAIN=1 day, HARD=3 days, GOOD=7 days, EASY=14 days
+- **Multipliers**: AGAIN (1.2x), HARD (1.9x), GOOD (2.6x), capped at 365 days
+- **Swipe "Memorized"**: Self-grading gives baseline GOOD interval × 1.5 multiplier (compounds on repeated memorization)
+- **First revision**: Generated questions get +24h stamp on creation
 
-Once the server is running, access the interactive API documentation:
+### Upload & Processing Pipeline
+1. User uploads PDF/DOCX/image via Android app
+2. Backend stores file (local or S3) and creates `Document` record
+3. AI analyzes content using Gemini
+4. Questions are generated and persisted as `StudyItem`s
+5. Android polls for processing status via WorkManager
 
-| Documentation | URL | Description |
-|---------------|-----|-------------|
-| Swagger UI | [http://localhost:8000/swagger/](http://localhost:8000/swagger/) | Interactive API testing interface |
-| ReDoc | [http://localhost:8000/redoc/](http://localhost:8000/redoc/) | Clean, responsive API documentation |
-| API Root | [http://localhost:8000/api/](http://localhost:8000/api/) | Browseable API root |
+### Revision Flow
+1. App fetches recommendations from `GET /api/v1/recommendations` (ML-powered, falls back to scheduler)
+2. User answers MCQs in revision session
+3. On completion, app batch-sends raw observables to `POST /api/v1/reviews`
+4. Backend derives results/confidence and updates scheduling
+5. Swipe-left on card can trigger instant `POST /api/v1/reviews/self-grade` for "memorized"
 
-## Available Endpoints
+## API Overview
 
+Base URL: `http://localhost:3000/api/v1` | Swagger: `/api/docs`
+
+Key endpoints:
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| /api/health/ | GET | Check API health status |
-| /api/health/ping/ | GET | Simple ping test endpoint |
-| /api/users/ | GET | List all registered users |
-| /api/users/{id}/ | GET | Retrieve specific user details |
+| `/auth/register`, `/auth/login` | POST | Authentication |
+| `/documents` | POST/GET | Upload and list study materials |
+| `/documents/{id}/questions` | POST | Generate questions from document |
+| `/recommendations` | GET | Get items due for review (ML-ranked) |
+| `/reviews` | POST | Submit review session (raw observables) |
+| `/reviews/self-grade` | POST | Swipe "memorized" action |
+| `/dashboard` | GET | Study stats and suggestions |
+| `/analytics/overview`, `/analytics/heatmap` | GET | Progress analytics |
 
-## Admin Panel
-
-Access the Django admin interface at [http://localhost:8000/admin/](http://localhost:8000/admin/) to manage users and data.
-
-## Project Structure
-
-`
-backendProject/
-├── api/                # API application
-│   ├── serializers.py  # Data serializers
-│   ├── views.py        # API views/viewsets
-│   ├── urls.py         # API routes
-│   └── ...
-├── core/               # Project configuration
-│   ├── settings.py     # Django settings
-│   ├── urls.py         # Main URL configuration
-│   └── ...
-├── manage.py           # Django management script
-├── requirements.txt    # Project dependencies
-├── .env.example        # Environment variables template
-└── README.md           # Project documentation
-`
-
-## Running Tests
+## Testing
 
 ```bash
-python manage.py test
-`
+# Backend
+cd backend
+npm test           # Unit tests
+npm run test:e2e   # E2E tests (requires DATABASE_URL)
 
-## Deployment Notes
+# ML Service
+cd machine_learning
+pytest
 
-For production deployment:
-1. Set DEBUG=False in .env
-2. Update SECRET_KEY with a secure random key
-3. Configure ALLOWED_HOSTS with your domain
-4. Use a production database (PostgreSQL recommended)
-5. Collect static files: python manage.py collectstatic
-6. Use a WSGI server like Gunicorn
+# End-to-end flow test (from repo root)
+./scripts/e2e.sh
+```
+
+## Deployment
+
+- **Backend**: Ready for deployment on [Render](https://render.com/) (see `render.yaml`). Uses Brevo for emails on Render.
+- **ML Service**: Can be deployed separately (see `machine_learning/render.yaml`)
+- **Android**: Build release APK/AAB with `./gradlew assembleRelease` / `bundleRelease`
+
+For production, ensure:
+- Set `DEBUG=false` / `NODE_ENV=production`
+- Use strong `JWT_SECRET`
+- Configure production database (PostgreSQL)
+- Set up proper `CORS_ORIGIN`
+- Use S3-compatible storage for scalability
+- Configure email provider (Brevo recommended for cloud hosts)
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
 This project is for educational purposes.
-=======
 
+## Support
+
+For issues or questions, please open an issue on the [GitHub repository](https://github.com/nehalss267/Ready-To-Revise--Revision-Scheduler-App/issues).
